@@ -1,0 +1,40 @@
+{
+  "developerAbbreviation": "SA",
+  "protocolName": "Compound V3",
+  "protocolAbbreviation": "COMP",
+  "contracts": {
+    "Comet": {
+      "address": "0xc3d688B66703497DAA19211EEdff47f25384cdc3",
+      "symbol": "cUSDCv3",
+      "abiFile": "CometMainInterface.json",
+      "events": {
+        "Supply": {
+          "type": "Info",
+          "severity": "Info",
+          "amountKey": "amount"
+        },
+        "SupplyCollateral": {
+          "type": "Info",
+          "severity": "Info",
+          "assetKey": "asset",
+          "amountKey": "amount"
+        },
+        "Withdraw": {
+          "type": "Info",
+          "severity": "Info",
+          "amountKey": "amount"
+        },
+        "WithdrawCollateral": {
+          "type": "Info",
+          "severity": "Info",
+          "assetKey": "asset",
+          "amountKey": "amount"
+        }
+      }
+    },
+    "Collateral": {
+      "abiFile": "ERC20.json",
+      "events": {}
+    }
+  }
+}
