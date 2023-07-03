@@ -1,5 +1,5 @@
 {
-  "name": "forta-sa-comp-ctoken-events",
+  "name": "forta-sa-comp-comet-events",
   "version": "0.0.5",
   "description": "This Bot monitors Compound Finance Comet contract for common market events.",
   "scripts": {

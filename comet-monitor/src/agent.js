@@ -8,8 +8,6 @@ const { getAbi, extractEventArgs } = require('./utils')
 // load any bot configuration parameters
 const config = require('../bot-config.json')
 
-const DECIMALS_ABI = ['function decimals() view returns (uint8)']
-
 // set up a variable to hold initialization data used in the handler
 const initializeData = {}
 
@@ -59,6 +57,7 @@ async function createAlert(
     eventSeverity,
     usdValue,
     args,
+    decimals,
     protocolName,
     protocolAbbreviation,
     developerAbbreviation,
@@ -76,6 +75,7 @@ async function createAlert(
         metadata: {
             symbol,
             contractAddress,
+            decimals,
             eventName,
             usdValue,
             protocolVersion,
@@ -113,18 +113,19 @@ async function getCollateralTokenInfo(address, abi, provider) {
     }
 }
 
-async function getTokenInfo(address, symbol, abi, provider) {
+async function getTokenInfo(address, abi, underlyingAbi, provider) {
     const contract = new ethers.Contract(address, abi, provider)
 
     const underlyingTokenAddress = await contract.baseToken()
 
-    const underlyingContract = new ethers.Contract(underlyingTokenAddress, DECIMALS_ABI, provider)
+    const underlyingContract = new ethers.Contract(underlyingTokenAddress, underlyingAbi, provider)
 
     const underlyingDecimals = await underlyingContract.decimals()
+    const underlyingSymbol = await underlyingContract.symbol()
 
     return {
         contract,
-        symbol,
+        symbol: underlyingSymbol,
         underlyingTokenAddress,
         underlyingDecimals,
     }
@@ -146,7 +147,6 @@ function provideInitialize(data) {
         // from the Comptroller contract, get all of the cTokens
         const cometABI = getAbi(comet.abiFile)
         data.cometContract = new ethers.Contract(comet.address, cometABI, data.provider)
-        
 
         const collateralABI = getAbi(collateral.abiFile)
 
@@ -155,7 +155,7 @@ function provideInitialize(data) {
         const { events: cometEvents } = comet
         data.cometAddress = comet.address
         data.cometInfo = getEventInfo(cometInterface, cometEvents, sigTypeFull)
-        data.cometTokenInfo = await getTokenInfo(comet.address, comet.symbol, cometABI, data.provider)
+        data.cometTokenInfo = await getTokenInfo(comet.address, cometABI, collateralABI, data.provider)
         data.collateralABI = collateralABI
     }
 }
@@ -176,7 +176,6 @@ function provideHandleTransaction(data) {
 
         const signatures = cometInfo.map((entry) => entry.signature)
         const parsedLogs = txEvent.filterLog(signatures, cometAddress)
-        
 
         const promises = parsedLogs.map(async (log) => {
             const { address, name } = log
@@ -200,9 +199,10 @@ function provideHandleTransaction(data) {
             // get the conversion rate for this token to USD
             const usdPerToken = await getTokenPrice(underlyingTokenAddress)
 
-            // calculate the total amount of this transaction
-            const divisor = new BigNumber(10).pow(underlyingDecimals)
-            const value = usdPerToken.times(amount.div(divisor)).integerValue(BigNumber.ROUND_FLOOR)
+            const divisor = new BigNumber(10).pow(underlyingDecimals.toNumber())
+            const normalizedAmount = amount.div(divisor)
+
+            const value = usdPerToken.times(normalizedAmount).integerValue(BigNumber.ROUND_FLOOR)
 
             const emojiString = await emojiForEvent(name, value)
 
@@ -214,6 +214,7 @@ function provideHandleTransaction(data) {
                 specificEvent.severity,
                 value.toString(),
                 log.args,
+                underlyingDecimals.toString(),
                 protocolName,
                 protocolAbbreviation,
                 developerAbbreviation,
